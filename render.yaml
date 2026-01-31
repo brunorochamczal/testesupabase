@@ -1,6 +1,11 @@
 services:
   - type: web
-    name: seu-app-flask
+    name: testesupabase
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://postgres:Programacaoweb2026@db.pmmxjfnytdaxcvvpdcet.supabase.co:5432/postgres
+      - key: PYTHON_VERSION
+        value: 3.11.0
