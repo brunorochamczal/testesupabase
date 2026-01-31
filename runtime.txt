@@ -1,12 +1,1 @@
 python-3.11.0
-```
-
-### 3. **Estrutura do seu projeto deve ficar assim:**
-```
-testesupabase/
-├── sistema.py
-├── requirements.txt      ← CRIAR ESTE
-├── runtime.txt           ← CRIAR ESTE
-└── templates/
-    ├── index.html
-    └── cadastrar.html
