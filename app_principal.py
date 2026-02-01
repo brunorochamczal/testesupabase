@@ -116,4 +116,4 @@ def listagem():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))  # Render usa $PORT
     print(f"🚀 Servidor iniciando na porta: {port}")
-    app.run(host='0.0.0.0', port=port))
+    app.run(host='0.0.0.0', port=port)
