@@ -1,132 +1,85 @@
-from flask import Flask, request, render_template, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for
 import psycopg2
 import os
-from urllib.parse import urlparse
 
 app = Flask(__name__)
 
-# ⚠️ FUNÇÃO PARA OBTER CONEXÃO (Importante para Render)
-def get_db_connection():
-    """Obtém conexão com banco de dados de forma segura"""
-    
-    # 1. Tenta pegar do Environment Variable (Render injeta isso)
+# Conexão SIMPLES e FUNCIONAL com Supabase
+def conectar_banco():
+    # URL do Supabase - Render injeta isso automaticamente
     database_url = os.environ.get('DATABASE_URL')
     
-    # 2. Fallback para desenvolvimento local
+    # Se não tiver variável de ambiente, use esta URL (SUPABASE COM IPv4)
     if not database_url:
         database_url = "postgresql://postgres:Programacaoweb2026@db.pmmxjfnytdaxcvvpdcet.supabase.co:5432/postgres"
     
-    # 3. Conecta com SSL obrigatório (Supabase requer)
-    try:
-        conn = psycopg2.connect(
-            database_url,
-            sslmode='require',  # ⚠️ CRÍTICO para Supabase
-            connect_timeout=10   # Timeout para evitar travamento
-        )
-        return conn
-    except Exception as e:
-        print(f"❌ Erro de conexão: {e}")
-        raise
+    # Conexão COM SSL (obrigatório para Supabase)
+    conn = psycopg2.connect(database_url, sslmode='require')
+    return conn
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/cadastrar_renderizar')
-def cadastrar_renderizar():
-    mensagem = request.args.get('mensagem')
+@app.route('/cadastrar')
+def mostrar_formulario():
+    mensagem = request.args.get('mensagem', '')
     return render_template('cadastrar.html', mensagem=mensagem)
 
-@app.route('/cadastrar', methods=['POST'])
-def cadastrar():
-    conexao = None
+@app.route('/salvar', methods=['POST'])
+def salvar_pet():
+    nome = request.form['nome']
+    idade = request.form['idade']
     
+    conn = None
     try:
-        nome = request.form.get('nome')
-        idade = request.form.get('idade')
+        conn = conectar_banco()
+        cursor = conn.cursor()
         
-        # Validação básica
-        if not nome or not idade:
-            return redirect(url_for('cadastrar_renderizar', mensagem='erro_campos'))
+        # Cria tabela se não existir
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS pets (
+                id SERIAL PRIMARY KEY,
+                nome VARCHAR(100) NOT NULL,
+                idade INTEGER NOT NULL
+            )
+        ''')
         
-        # ✅ USAR FUNÇÃO get_db_connection()
-        conexao = get_db_connection()
-        cursor = conexao.cursor()
-
-        query = """
-            INSERT INTO pets (nome_pet, idade_pet) 
-            VALUES (%s, %s) 
-            RETURNING id_pet;
-        """
-
-        cursor.execute(query, (nome, idade))
-        id_gerado = cursor.fetchone()[0]
+        # Insere o pet
+        cursor.execute(
+            "INSERT INTO pets (nome, idade) VALUES (%s, %s)",
+            (nome, idade)
+        )
         
-        conexao.commit()
-        cursor.close()
-        
-        print(f"✅ Pet cadastrado: ID {id_gerado}, Nome: {nome}, Idade: {idade}")
-        return redirect(url_for('cadastrar_renderizar', mensagem='sucesso'))
-        
-    except psycopg2.IntegrityError as e:
-        print(f"❌ Erro de integridade: {e}")
-        if conexao:
-            conexao.rollback()
-        return redirect(url_for('cadastrar_renderizar', mensagem='erro_duplicado'))
+        conn.commit()
+        return redirect('/cadastrar?mensagem=sucesso')
         
     except Exception as e:
-        print(f"❌ ERRO DETALHADO: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
-        if conexao:
-            conexao.rollback()
-        return redirect(url_for('cadastrar_renderizar', mensagem='erro'))
+        print(f"Erro: {e}")
+        return redirect('/cadastrar?mensagem=erro')
         
     finally:
-        if conexao:
-            conexao.close()
+        if conn:
+            conn.close()
 
-@app.route('/listagem')
-def listagem():
-    conexao = None
-    
+@app.route('/listar')
+def listar_pets():
+    conn = None
     try:
-        conexao = get_db_connection()
-        cursor = conexao.cursor()
-        
-        query = "SELECT id_pet, nome_pet, idade_pet FROM pets ORDER BY id_pet;"
-        cursor.execute(query)
-        
+        conn = conectar_banco()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, nome, idade FROM pets ORDER BY id")
         pets = cursor.fetchall()
-        cursor.close()
         
-        return render_template('grid.html', pets=pets)
+        return render_template('listar.html', pets=pets)
         
     except Exception as e:
-        # ⚠️ REMOVA a linha que usa erro.html
-        error_msg = f"Erro ao buscar PETs: {str(e)}"
-        print(f"❌ {error_msg}")
-        
-        # Retorna HTML simples em vez de template
-        return f'''
-        <!DOCTYPE html>
-        <html>
-        <head><title>Erro</title></head>
-        <body>
-            <h2>❌ Erro ao buscar pets</h2>
-            <p>{error_msg}</p>
-            <p><strong>Solução:</strong> O Render não consegue conectar ao Supabase (problema IPv6).</p>
-            <a href="/">Voltar para início</a>
-        </body>
-        </html>
-        ''', 500
+        return f"Erro ao buscar pets: {str(e)}", 500
         
     finally:
-        if conexao:
-            conexao.close()
+        if conn:
+            conn.close()
 
-# ⚠️ ESSA PARTE É ESSENCIAL PARA FUNCIONAR NO RENDER
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))  # Render usa $PORT
-    print(f"🚀 Servidor iniciando na porta: {port}")
+    port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
