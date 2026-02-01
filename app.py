@@ -1,61 +1,63 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect
 import psycopg2
 import os
 
 app = Flask(__name__)
 
-# Conexão SIMPLES e FUNCIONAL com Supabase
-def conectar_banco():
-    # URL do Supabase - Render injeta isso automaticamente
-    database_url = os.environ.get('DATABASE_URL')
+def conectar_supabase():
+    """Conexão CORRETA com Supabase Pooling"""
     
-    # Se não tiver variável de ambiente, use esta URL (SUPABASE COM IPv4)
-    if not database_url:
-        database_url = "postgresql://postgres:Programacaoweb2026@db.pmmxjfnytdaxcvvpdcet.supabase.co:5432/postgres"
+    # URL do Pooling (OBRIGATÓRIA para Render)
+    # ⚠️ SUBSTITUA pela SUA URL do Supabase Pooling
+    POOLING_URL = "postgresql://postgres:Programacaoweb2026@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
     
-    # Conexão COM SSL (obrigatório para Supabase)
-    conn = psycopg2.connect(database_url, sslmode='require')
+    # Conecta COM SSL (obrigatório)
+    conn = psycopg2.connect(POOLING_URL, sslmode='require')
     return conn
 
 @app.route('/')
-def index():
+def home():
     return render_template('index.html')
 
 @app.route('/cadastrar')
-def mostrar_formulario():
+def cadastrar_pagina():
     mensagem = request.args.get('mensagem', '')
     return render_template('cadastrar.html', mensagem=mensagem)
 
 @app.route('/salvar', methods=['POST'])
-def salvar_pet():
+def salvar():
     nome = request.form['nome']
     idade = request.form['idade']
     
     conn = None
     try:
-        conn = conectar_banco()
-        cursor = conn.cursor()
+        conn = conectar_supabase()
+        cur = conn.cursor()
         
-        # Cria tabela se não existir
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS pets (
-                id SERIAL PRIMARY KEY,
-                nome VARCHAR(100) NOT NULL,
-                idade INTEGER NOT NULL
-            )
-        ''')
+        # Tenta criar tabela
+        try:
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS pets (
+                    id SERIAL PRIMARY KEY,
+                    nome VARCHAR(100),
+                    idade INTEGER
+                )
+            ''')
+            conn.commit()
+        except:
+            pass  # Tabela já existe
         
-        # Insere o pet
-        cursor.execute(
+        # Insere dados
+        cur.execute(
             "INSERT INTO pets (nome, idade) VALUES (%s, %s)",
             (nome, idade)
         )
-        
         conn.commit()
+        
         return redirect('/cadastrar?mensagem=sucesso')
         
     except Exception as e:
-        print(f"Erro: {e}")
+        print(f"❌ Erro: {e}")
         return redirect('/cadastrar?mensagem=erro')
         
     finally:
@@ -63,18 +65,18 @@ def salvar_pet():
             conn.close()
 
 @app.route('/listar')
-def listar_pets():
+def listar():
     conn = None
     try:
-        conn = conectar_banco()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, nome, idade FROM pets ORDER BY id")
-        pets = cursor.fetchall()
+        conn = conectar_supabase()
+        cur = conn.cursor()
+        cur.execute("SELECT id, nome, idade FROM pets ORDER BY id")
+        pets = cur.fetchall()
         
         return render_template('listar.html', pets=pets)
         
     except Exception as e:
-        return f"Erro ao buscar pets: {str(e)}", 500
+        return f"<h1>Erro</h1><p>{str(e)}</p><p>Verifique a URL de connection pooling</p>", 500
         
     finally:
         if conn:
