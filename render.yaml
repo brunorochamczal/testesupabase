@@ -1,11 +1,10 @@
 services:
   - type: web
-    name: sistema-pets
+    name: meus-pets
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
 
   - type: postgres
-    name: pets-database
+    name: banco-pets
     plan: free
-    ipAllowList: []
