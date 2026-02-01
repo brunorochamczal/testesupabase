@@ -4,42 +4,70 @@ import os
 
 app = Flask(__name__)
 
-def conectar_supabase():
-    """URL CORRETA do Supabase Pooling"""
-    # ⚠️ SUBSTITUA com SUA URL CORRETA do pooling
-    # Formato: postgres.[PROJECT-REF]:[PASSWORD]@...
-    
-    POOLING_URL = "postgresql://postgres.pmmxjfnytdaxcvvpdcet:Programacaoweb2026@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
-    
-    try:
-        print(f"🔗 Conectando: {POOLING_URL.split('@')[1]}")
-        conn = psycopg2.connect(POOLING_URL, sslmode='require')
-        print("✅ Conexão estabelecida")
-        return conn
-    except Exception as e:
-        print(f"❌ Erro conexão: {e}")
-        raise
+def conectar_banco():
+    """Conecta ao banco de dados"""
+    # O Render injeta esta URL automaticamente
+    database_url = os.environ.get('DATABASE_URL')
+    return psycopg2.connect(database_url)
 
 @app.route('/')
 def home():
     return render_template('index.html')
 
-@app.route('/teste-conexao')
-def teste_conexao():
-    """Testa se a conexão funciona"""
-    try:
-        conn = conectar_supabase()
-        cur = conn.cursor()
-        cur.execute("SELECT version()")
-        resultado = cur.fetchone()[0]
-        cur.close()
-        conn.close()
-        return f"✅ Conexão OK! PostgreSQL: {resultado}"
-    except Exception as e:
-        return f"❌ Falha: {str(e)}"
+@app.route('/cadastrar')
+def cadastrar_pagina():
+    mensagem = request.args.get('mensagem', '')
+    return render_template('cadastrar.html', mensagem=mensagem)
 
-# ... resto das rotas igual antes ...
+@app.route('/salvar', methods=['POST'])
+def salvar():
+    nome = request.form['nome']
+    idade = request.form['idade']
+    
+    conn = None
+    try:
+        conn = conectar_banco()
+        cur = conn.cursor()
+        
+        # Cria tabela se não existir
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS pets (
+                id SERIAL PRIMARY KEY,
+                nome TEXT NOT NULL,
+                idade INTEGER NOT NULL
+            )
+        ''')
+        
+        # Insere o pet
+        cur.execute(
+            "INSERT INTO pets (nome, idade) VALUES (%s, %s)",
+            (nome, idade)
+        )
+        
+        conn.commit()
+        return redirect('/cadastrar?mensagem=sucesso')
+        
+    except Exception as e:
+        return redirect('/cadastrar?mensagem=erro')
+    finally:
+        if conn:
+            conn.close()
+
+@app.route('/listar')
+def listar():
+    conn = None
+    try:
+        conn = conectar_banco()
+        cur = conn.cursor()
+        cur.execute("SELECT id, nome, idade FROM pets ORDER BY id")
+        pets = cur.fetchall()
+        return render_template('listar.html', pets=pets)
+    except Exception as e:
+        return f"Erro: {str(e)}"
+    finally:
+        if conn:
+            conn.close()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port))
