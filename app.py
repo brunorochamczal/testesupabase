@@ -91,7 +91,7 @@ def listagem():
     conexao = None
     
     try:
-        conexao = get_db_connection()  # ✅ USAR FUNÇÃO
+        conexao = get_db_connection()
         cursor = conexao.cursor()
         
         query = "SELECT id_pet, nome_pet, idade_pet FROM pets ORDER BY id_pet;"
@@ -103,10 +103,23 @@ def listagem():
         return render_template('grid.html', pets=pets)
         
     except Exception as e:
-        # Página de erro mais amigável
+        # ⚠️ REMOVA a linha que usa erro.html
         error_msg = f"Erro ao buscar PETs: {str(e)}"
         print(f"❌ {error_msg}")
-        return render_template('erro.html', erro=error_msg), 500
+        
+        # Retorna HTML simples em vez de template
+        return f'''
+        <!DOCTYPE html>
+        <html>
+        <head><title>Erro</title></head>
+        <body>
+            <h2>❌ Erro ao buscar pets</h2>
+            <p>{error_msg}</p>
+            <p><strong>Solução:</strong> O Render não consegue conectar ao Supabase (problema IPv6).</p>
+            <a href="/">Voltar para início</a>
+        </body>
+        </html>
+        ''', 500
         
     finally:
         if conexao:
