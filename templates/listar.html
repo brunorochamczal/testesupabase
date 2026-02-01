@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pets Cadastrados</title>
+</head>
+<body>
+    <h1>📋 Pets Cadastrados</h1>
+    
+    {% if pets %}
+        <table border="1">
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Idade</th>
+            </tr>
+            {% for id, nome, idade in pets %}
+            <tr>
+                <td>{{ id }}</td>
+                <td>{{ nome }}</td>
+                <td>{{ idade }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>Nenhum pet cadastrado ainda.</p>
+    {% endif %}
+    
+    <br>
+    <a href="/">← Voltar</a>
+</body>
+</html>
