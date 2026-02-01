@@ -6,6 +6,10 @@ app = Flask(__name__)
 
 def conectar_supabase():
     """Conexão CORRETA com Supabase Pooling"""
+
+   
+    database_url = os.environ.get('DATABASE_URL')
+    return psycopg2.connect(database_url)
     
     # URL do Pooling (OBRIGATÓRIA para Render)
     # ⚠️ SUBSTITUA pela SUA URL do Supabase Pooling
